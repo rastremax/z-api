@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Técnico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        h2 {
+            color: #ff8c00;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #ff8c00;
+            color: white;
+        }
+        button {
+            background: #ff8c00;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #cc7000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Painel do Técnico</h2>
+        <button onclick="logout()">Sair</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Tipo de Serviço</th>
+                    <th>Empresa</th>
+                    <th>Data</th>
+                    <th>Hora</th>
+                    <th>Cliente</th>
+                    <th>Veículo</th>
+                    <th>Status</th>
+                    <th>Observações</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="listaServicosTecnico">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (!user || user.tipo !== "tecnico") {
+            window.location.href = "login.html";
+        }
+
+        function formatarData(data) {
+            let [ano, mes, dia] = data.split("-");
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        function atualizarStatus(index, novoStatus) {
+            let servicos = JSON.parse(localStorage.getItem("servicos") || "[]");
+            if (novoStatus === 'Reagendado') {
+                let precisaReagendar = confirm('Este serviço precisa ser reagendado?');
+                if (precisaReagendar) {
+                    alert('O serviço foi marcado como necessitando de reagendamento.');
+                    servicos[index].status = novoStatus;
+                } else {
+                    alert('Nenhuma alteração realizada.');
+                    return;
+                }
+            } else {
+                servicos[index].status = novoStatus;
+                alert('Status atualizado para: ' + novoStatus);
+            }
+            localStorage.setItem("servicos", JSON.stringify(servicos));
+            window.location.reload();
+        }
+
+        function logout() {
+            sessionStorage.removeItem("user");
+            window.location.href = "login.html";
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const listaServicos = document.getElementById("listaServicosTecnico");
+            let servicos = JSON.parse(localStorage.getItem("servicos") || "[]");
+            const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+
+            servicos = servicos.filter(s => s.tecnico === user.username);
+            servicos.forEach((servico, index) => {
+                let row = listaServicos.insertRow();
+                row.innerHTML = `
+                    <td>${servico.tipoServico}</td>
+                    <td>${servico.empresa}</td>
+                    <td>${formatarData(servico.data)}</td>
+                    <td>${servico.horario}</td>
+                    <td>${servico.cliente}</td>
+                    <td>${servico.modelo} (${servico.ano}) ${servico.placa ? "- " + servico.placa : ""}</td>
+                    <td>${servico.status}</td>
+                    <td>${servico.observacoes}</td>
+                    <td>
+                        <select onchange="atualizarStatus(${index}, this.value)">
+                            <option value="Pendente" ${servico.status === "Pendente" ? "selected" : ""}>Pendente</option>
+                            <option value="Concluído" ${servico.status === "Concluído" ? "selected" : ""}>Concluído</option>
+                            <option value="Cancelado" ${servico.status === "Cancelado" ? "selected" : ""}>Cancelado</option>
+                            <option value="Reagendado">Reagendado</option>
+                        </select>
+                    </td>
+                `;
+            });
+        });
+    </script>
+</body>
+</html>

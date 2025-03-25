@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Serviços</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1300px; /* Aumentado para acomodar melhor os gráficos */
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #ff8c00;
+            font-size: 2.5em; /* Aumentado para destacar o título */
+        }
+        h2 {
+            color: #333;
+            margin-top: 40px;
+            font-size: 1.8em; /* Aumentado para melhor legibilidade */
+        }
+        canvas {
+            margin: 30px auto;
+            max-width: 100%;
+            height: 400px !important; /* Aumentado o tamanho dos gráficos */
+            width: 100% !important; /* Garante que ocupe a largura total */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            font-size: 1.1em; /* Aumentado para melhor legibilidade */
+        }
+        th, td {
+            border: 2px solid #ddd; /* Bordas mais grossas */
+            padding: 15px;
+            text-align: center;
+        }
+        th {
+            background-color: #ff8c00;
+            color: white;
+            font-size: 1.2em; /* Aumentado para destacar cabeçalhos */
+        }
+        nav a {
+            color: #6A0DAD; /* Cor roxa mais vibrante */
+            margin: 0 15px;
+            text-decoration: none;
+            font-size: 1.1em; /* Aumentado para melhor legibilidade */
+        }
+        nav a:hover {
+            text-decoration: underline;
+            color: #4A0080; /* Tom mais escuro ao passar o mouse */
+        }
+        button {
+            background: #ff8c00;
+            color: white;
+            border: none;
+            padding: 12px 25px; /* Aumentado o tamanho dos botões */
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 1.1em; /* Aumentado o texto dos botões */
+            margin: 10px;
+        }
+        button:hover {
+            background: #cc7000;
+        }
+        .filtro-periodo {
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .filtro-periodo input {
+            padding: 10px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            font-size: 1.1em;
+        }
+        .export-btn {
+            background: #28a745; /* Cor verde para destacar o botão de exportação */
+            margin-top: 20px;
+        }
+        .export-btn:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard de Serviços</h1>
+        <nav>
+            <a href="painel.html">Painel de Controle</a> |
+            <a href="relatorios.html">Relatórios</a> |
+            <a href="agenda_tecnicos.html">Agenda de Técnicos</a> |
+            <button onclick="logout()">Sair</button>
+        </nav>
+
+        <div class="filtro-periodo">
+            <label>Início:</label>
+            <input type="date" id="dataInicio">
+            <label>Fim:</label>
+            <input type="date" id="dataFim">
+            <button onclick="filtrarPorPeriodo()">Filtrar</button>
+            <button onclick="limparFiltro()">Limpar Filtro</button>
+        </div>
+
+        <h2>Quantidade de Serviços Realizados</h2>
+        <p>Total de Serviços: <span id="totalServicos">0</span></p>
+
+        <h2>Taxa de Cancelamento</h2>
+        <p>Taxa: <span id="taxaCancelamento">0</span>%</p>
+
+        <h2>Serviços por Tipo</h2>
+        <canvas id="graficoTipos"></canvas>
+
+        <h2>Serviços por Empresa</h2>
+        <canvas id="graficoEmpresas"></canvas>
+
+        <h2>Ranking de Técnicos (Mais Serviços Concluídos)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Técnico</th>
+                    <th>Serviços Concluídos</th>
+                    <th>Serviços Pendentes</th>
+                </tr>
+            </thead>
+            <tbody id="rankingTecnicos"></tbody>
+        </table>
+
+        <h2>Valores Recebidos por Técnico</h2>
+        <canvas id="graficoValores"></canvas>
+
+        <h2>Serviços por Data</h2>
+        <canvas id="graficoPorData"></canvas>
+
+        <h2>Tempo Médio de Conclusão de Serviços</h2>
+        <p>Tempo Médio: <span id="tempoMedio">0</span> dias</p>
+
+        <h2>Taxa de Conclusão</h2>
+        <p>Taxa: <span id="taxaConclusao">0</span>%</p>
+
+        <button class="export-btn" onclick="exportarCSV()">Exportar Dados como CSV</button>
+    </div>
+
+    <script>
+        const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (!user || user.tipo !== "admin") {
+            window.location.href = "login.html";
+        }
+
+        let servicosFiltrados = JSON.parse(localStorage.getItem("servicos") || "[]");
+        let servicosOriginais = [...servicosFiltrados];
+
+        function filtrarPorPeriodo() {
+            const dataInicio = new Date(document.getElementById("dataInicio").value);
+            const dataFim = new Date(document.getElementById("dataFim").value);
+            if (isNaN(dataInicio) || isNaN(dataFim)) {
+                alert("Por favor, selecione datas válidas!");
+                return;
+            }
+
+            servicosFiltrados = servicosOriginais.filter(servico => {
+                const dataServico = new Date(servico.data);
+                return dataServico >= dataInicio && dataServico <= dataFim;
+            });
+            atualizarDashboard();
+        }
+
+        function limparFiltro() {
+            document.getElementById("dataInicio").value = "";
+            document.getElementById("dataFim").value = "";
+            servicosFiltrados = [...servicosOriginais];
+            atualizarDashboard();
+        }
+
+        function atualizarDashboard() {
+            const totalServicos = servicosFiltrados.length;
+            document.getElementById("totalServicos").textContent = totalServicos;
+
+            const totalCancelados = servicosFiltrados.filter(s => s.status === "Cancelado").length;
+            const taxaCancelamento = totalServicos ? ((totalCancelados / totalServicos) * 100).toFixed(2) : 0;
+            document.getElementById("taxaCancelamento").textContent = taxaCancelamento;
+
+            const tiposServicos = {};
+            servicosFiltrados.forEach(servico => {
+                tiposServicos[servico.tipoServico] = (tiposServicos[servico.tipoServico] || 0) + 1;
+            });
+            const tiposLabels = Object.keys(tiposServicos);
+            const tiposData = Object.values(tiposServicos);
+            const ctxTipos = document.getElementById("graficoTipos").getContext("2d");
+            if (window.chartTipos) window.chartTipos.destroy();
+            window.chartTipos = new Chart(ctxTipos, {
+                type: "pie",
+                data: {
+                    labels: tiposLabels,
+                    datasets: [{
+                        label: "Serviços por Tipo",
+                        data: tiposData,
+                        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: "bottom"
+                        }
+                    }
+                }
+            });
+
+            const empresasServicos = {};
+            servicosFiltrados.forEach(servico => {
+                empresasServicos[servico.empresa] = (empresasServicos[servico.empresa] || 0) + 1;
+            });
+            const empresasLabels = Object.keys(empresasServicos);
+            const empresasData = Object.values(empresasServicos);
+            const ctxEmpresas = document.getElementById("graficoEmpresas").getContext("2d");
+            if (window.chartEmpresas) window.chartEmpresas.destroy();
+            window.chartEmpresas = new Chart(ctxEmpresas, {
+                type: "bar",
+                data: {
+                    labels: empresasLabels,
+                    datasets: [{
+                        label: "Serviços por Empresa",
+                        data: empresasData,
+                        backgroundColor: "#FFCE56"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            const rankingTecnicos = {};
+            servicosFiltrados.forEach(servico => {
+                if (!rankingTecnicos[servico.tecnico]) {
+                    rankingTecnicos[servico.tecnico] = { concluidos: 0, pendentes: 0 };
+                }
+                if (servico.status === "Concluído") {
+                    rankingTecnicos[servico.tecnico].concluidos += 1;
+                } else if (servico.status === "Pendente") {
+                    rankingTecnicos[servico.tecnico].pendentes += 1;
+                }
+            });
+            const rankingArray = Object.entries(rankingTecnicos).sort((a, b) => b[1].concluidos - a[1].concluidos);
+            const tbodyRanking = document.getElementById("rankingTecnicos");
+            tbodyRanking.innerHTML = "";
+            rankingArray.forEach(([tecnico, stats]) => {
+                const row = tbodyRanking.insertRow();
+                row.innerHTML = `
+                    <td>${tecnico}</td>
+                    <td>${stats.concluidos}</td>
+                    <td>${stats.pendentes}</td>
+                `;
+            });
+
+            const valoresPorTecnico = {};
+            servicosFiltrados.forEach(servico => {
+                if (servico.status === "Concluído") {
+                    valoresPorTecnico[servico.tecnico] = (valoresPorTecnico[servico.tecnico] || 0) + parseFloat(servico.valorReceber || 0);
+                }
+            });
+            const valoresLabels = Object.keys(valoresPorTecnico);
+            const valoresData = Object.values(valoresPorTecnico);
+            const ctxValores = document.getElementById("graficoValores").getContext("2d");
+            if (window.chartValores) window.chartValores.destroy();
+            window.chartValores = new Chart(ctxValores, {
+                type: "bar",
+                data: {
+                    labels: valoresLabels,
+                    datasets: [{
+                        label: "Valores Recebidos por Técnico",
+                        data: valoresData,
+                        backgroundColor: "#4BC0C0"
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            const servicosPorData = {};
+            servicosFiltrados.forEach(servico => {
+                servicosPorData[servico.data] = (servicosPorData[servico.data] || 0) + 1;
+            });
+            const datasLabels = Object.keys(servicosPorData).sort();
+            const datasData = datasLabels.map(data => servicosPorData[data]);
+            const ctxPorData = document.getElementById("graficoPorData").getContext("2d");
+            if (window.chartPorData) window.chartPorData.destroy();
+            window.chartPorData = new Chart(ctxPorData, {
+                type: "line",
+                data: {
+                    labels: datasLabels,
+                    datasets: [{
+                        label: "Serviços por Data",
+                        data: datasData,
+                        borderColor: "#36A2EB",
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            const temposConclusao = [];
+            servicosFiltrados.forEach(servico => {
+                if (servico.status === "Concluído" && servico.data) {
+                    const dataServico = new Date(servico.data);
+                    const hoje = new Date();
+                    const diffTime = Math.abs(hoje - dataServico);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    temposConclusao.push(diffDays);
+                }
+            });
+            const tempoMedio = temposConclusao.length ? (temposConclusao.reduce((a, b) => a + b, 0) / temposConclusao.length).toFixed(2) : 0;
+            document.getElementById("tempoMedio").textContent = tempoMedio;
+
+            const totalConcluidos = servicosFiltrados.filter(s => s.status === "Concluído").length;
+            const taxaConclusao = totalServicos ? ((totalConcluidos / totalServicos) * 100).toFixed(2) : 0;
+            document.getElementById("taxaConclusao").textContent = taxaConclusao;
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            atualizarDashboard();
+        });
+
+        function exportarCSV() {
+            const servicos = JSON.parse(localStorage.getItem("servicos") || "[]");
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Técnico,Tipo de Serviço,Empresa,Data,Horário,Status,Cliente,Valor Recebido\n";
+            servicos.forEach(servico => {
+                const row = [
+                    servico.tecnico,
+                    servico.tipoServico,
+                    servico.empresa,
+                    servico.data,
+                    servico.horario,
+                    servico.status,
+                    servico.cliente,
+                    servico.valorReceber
+                ].join(",");
+                csvContent += row + "\n";
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "dashboard_servicos.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function logout() {
+            sessionStorage.removeItem("user");
+            window.location.href = "login.html";
+        }
+    </script>
+</body>
+</html>

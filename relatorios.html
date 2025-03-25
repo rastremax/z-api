@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios de Atendimentos</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #ff8c00;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+        nav a {
+            color: purple;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        button {
+            background: #ff8c00;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #cc7000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Relatórios de Atendimentos</h1>
+        <nav>
+            <a href="painel.html">Painel de Controle</a> |
+            <a href="agenda_tecnicos.html">Agenda de Técnicos</a> |
+            <button onclick="logout()">Sair</button>
+        </nav>
+        <canvas id="graficoAtendimentos"></canvas>
+    </div>
+
+    <script>
+        const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (!user || user.tipo !== "admin") {
+            window.location.href = "login.html";
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const atendimentos = {};
+            const servicos = JSON.parse(localStorage.getItem("servicos") || "[]");
+            servicos.forEach(servico => {
+                if (servico.status === "Concluído") {
+                    atendimentos[servico.tecnico] = (atendimentos[servico.tecnico] || 0) + 1;
+                }
+            });
+
+            const labels = Object.keys(atendimentos);
+            const dataValues = Object.values(atendimentos);
+
+            const dadosAtendimentos = {
+                labels: labels,
+                datasets: [{
+                    label: "Atendimentos Concluídos",
+                    data: dataValues,
+                    backgroundColor: ["red", "blue", "green", "orange", "purple"]
+                }]
+            };
+
+            const ctx = document.getElementById("graficoAtendimentos").getContext("2d");
+            new Chart(ctx, {
+                type: "bar",
+                data: dadosAtendimentos,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        });
+
+        function logout() {
+            sessionStorage.removeItem("user");
+            window.location.href = "login.html";
+        }
+    </script>
+</body>
+</html>

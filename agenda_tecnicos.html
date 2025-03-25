@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda de Técnicos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px gray;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: orange;
+            color: white;
+        }
+        .disponivel {
+            background-color: lightgreen;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Agenda de Técnicos</h2>
+        <label for="data">Escolha a Data:</label>
+        <input type="date" id="data">
+        <table>
+            <thead>
+                <tr>
+                    <th>Horário</th>
+                    <th>Bruno</th>
+                    <th>Cleber</th>
+                    <th>Romário</th>
+                </tr>
+            </thead>
+            <tbody id="agenda">
+            </tbody>
+        </table>
+        <button onclick="logout()">Sair</button>
+    </div>
+
+    <script>
+        const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (!user || user.tipo !== "admin") {
+            window.location.href = "login.html";
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const horarios = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+            const agenda = document.getElementById("agenda");
+            const dataInput = document.getElementById("data");
+
+            if (!dataInput) {
+                console.error("Elemento com ID 'data' não encontrado!");
+                return;
+            }
+
+            function formatarData(data) {
+                const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+                return new Date(data).toLocaleDateString('pt-BR', options);
+            }
+
+            function atualizarAgenda() {
+                const dataSelecionada = dataInput.value;
+                if (!dataSelecionada) return;
+
+                agenda.innerHTML = "";
+
+                horarios.forEach(horario => {
+                    const row = document.createElement("tr");
+                    const horarioCell = document.createElement("td");
+                    horarioCell.textContent = horario;
+                    row.appendChild(horarioCell);
+
+                    ["Bruno", "Cleber", "Romário"].forEach(tecnico => {
+                        const cell = document.createElement("td");
+                        const servico = JSON.parse(localStorage.getItem("servicos") || "[]").find(s => s.tecnico === tecnico && s.data === dataSelecionada && s.horario === horario);
+                        if (servico) {
+                            cell.textContent = `${servico.cliente} (${servico.status})`;
+                            cell.style.backgroundColor = servico.status === "Pendente" ? "lightcoral" : "lightgreen";
+                        } else {
+                            cell.textContent = "Disponível";
+                            cell.classList.add("disponivel");
+                        }
+                        row.appendChild(cell);
+                    });
+
+                    agenda.appendChild(row);
+                });
+            }
+
+            const hoje = new Date();
+            const dataFormatada = hoje.toISOString().split('T')[0];
+            dataInput.value = dataFormatada;
+
+            dataInput.addEventListener("change", atualizarAgenda);
+            atualizarAgenda();
+        });
+
+        function logout() {
+            sessionStorage.removeItem("user");
+            window.location.href = "login.html";
+        }
+    </script>
+</body>
+</html>

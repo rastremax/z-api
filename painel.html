@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ff8c00;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #ff8c00;
+        }
+        .form-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f4f4f4;
+            border-radius: 8px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background: #ff8c00;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #cc7000;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #ff8c00;
+            color: white;
+        }
+        nav a {
+            color: purple;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Painel de Controle</h1>
+        <nav>
+            <a href="dashboard.html">Dashboard</a> |
+            <a href="relatorios.html">Relatórios</a> |
+            <a href="agenda_tecnicos.html">Agenda de Técnicos</a> |
+            <a href="painel_funcionario.html">Painel do Funcionário</a> |
+            <button onclick="logout()">Sair</button>
+        </nav>
+
+        <div id="user-management" class="form-container">
+            <h2>Gerenciar Usuários</h2>
+            <form id="formUsuario">
+                <input type="text" id="username" placeholder="Usuário" required>
+                <input type="password" id="password" placeholder="Senha" required>
+                <select id="tipo">
+                    <option value="admin">Administrador</option>
+                    <option value="tecnico">Técnico</option>
+                    <option value="funcionario">Funcionário</option>
+                </select>
+                <button type="submit">Adicionar Usuário</button>
+            </form>
+
+            <h2>Usuários Cadastrados</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Tipo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="usuariosTabela"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (!user || user.tipo !== "admin") {
+            window.location.href = "login.html";
+        }
+
+        let usuarios = [];
+
+        async function carregarUsuarios() {
+            try {
+                console.log("Tentando carregar usuários do servidor...");
+                const response = await fetch("/api/users");
+                console.log("Resposta do servidor:", response);
+                if (!response.ok) {
+                    throw new Error(`Erro ao carregar usuários do servidor: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                usuarios = Array.isArray(data) ? data : [];
+                console.log("Usuários carregados:", usuarios);
+                atualizarTabela();
+            } catch (err) {
+                console.error("Erro ao buscar usuários:", err);
+                alert("Erro ao carregar usuários: " + err.message);
+            }
+        }
+
+        function atualizarTabela() {
+            console.log("Atualizando tabela com usuários:", usuarios);
+            const tbody = document.getElementById("usuariosTabela");
+            tbody.innerHTML = "";
+            if (!Array.isArray(usuarios)) {
+                console.error("Erro: usuarios não é um array:", usuarios);
+                return;
+            }
+            usuarios.forEach((usuario, index) => {
+                if (usuario && usuario.username && usuario.tipo) {
+                    let row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${usuario.username}</td>
+                        <td>${usuario.tipo}</td>
+                        <td>
+                            <button onclick="removerUsuario(${index})">Excluir</button>
+                        </td>
+                    `;
+                } else {
+                    console.warn("Ignorando entrada inválida no array:", usuario);
+                }
+            });
+        }
+
+        async function adicionarUsuario(event) {
+            event.preventDefault();
+            const usuario = {
+                username: document.getElementById("username").value,
+                password: document.getElementById("password").value,
+                tipo: document.getElementById("tipo").value
+            };
+            try {
+                console.log("Adicionando novo usuário:", usuario);
+                const response = await fetch("/api/users", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(usuario)
+                });
+                console.log("Resposta do servidor ao adicionar usuário:", response);
+                const result = await response.json();
+                if (response.ok) {
+                    usuarios = Array.isArray(result.users) ? result.users : [];
+                    console.log("Usuários após adicionar:", usuarios);
+                    atualizarTabela();
+                    document.getElementById("formUsuario").reset();
+                    alert("Usuário adicionado com sucesso!");
+                } else {
+                    alert("Erro ao adicionar usuário: " + result.error);
+                }
+            } catch (err) {
+                console.error("Erro ao adicionar usuário:", err);
+                alert("Erro ao adicionar usuário: " + err.message);
+            }
+        }
+
+        async function removerUsuario(index) {
+            console.log("Tentando remover usuário no índice:", index);
+            console.log("Usuários antes da remoção:", usuarios);
+            if (index >= 0 && index < usuarios.length) {
+                const usuarioRemovido = usuarios[index];
+                usuarios.splice(index, 1);
+                console.log("Usuários após a remoção local:", usuarios);
+                try {
+                    const response = await fetch("/api/users", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(usuarios)
+                    });
+                    console.log("Resposta do servidor ao remover usuário:", response);
+                    if (!response.ok) {
+                        throw new Error(`Erro ao remover usuário: ${response.status} ${response.statusText}`);
+                    }
+                    const result = await response.json();
+                    if (result && Array.isArray(result.users)) {
+                        usuarios = result.users;
+                        console.log("Usuários atualizados do servidor:", usuarios);
+                        atualizarTabela();
+                        alert("Usuário removido com sucesso!");
+                    } else {
+                        throw new Error("Resposta do servidor não contém um array válido de usuários.");
+                    }
+                } catch (err) {
+                    console.error("Erro ao remover usuário:", err);
+                    alert("Erro ao remover usuário: " + err.message);
+                    usuarios.push(usuarioRemovido); // Reverte a remoção local em caso de erro
+                    await carregarUsuarios(); // Recarrega os usuários do servidor
+                }
+            } else {
+                console.error("Índice inválido para remoção:", index);
+                alert("Erro: Índice inválido para remoção.");
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem("user");
+            window.location.href = "login.html";
+        }
+
+        document.addEventListener("DOMContentLoaded", async function() {
+            console.log("DOM carregado, inicializando...");
+            await carregarUsuarios();
+
+            const form = document.getElementById("formUsuario");
+            if (!form) {
+                console.error("Elemento com ID 'formUsuario' não encontrado!");
+                return;
+            }
+
+            form.addEventListener("submit", adicionarUsuario);
+        });
+    </script>
+</body>
+</html>

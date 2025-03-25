@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ff8c00;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #ff8c00;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background: #ff8c00;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #cc7000;
+        }
+        .error {
+            color: red;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="logo_jc.png" alt="JC Car Rastreamento" style="width: 150px; margin-bottom: 20px;">
+        <h1>Bem-vindo</h1>
+        <h3>Agenda de Serviços</h3>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Usuário" required>
+            <input type="password" id="password" placeholder="Senha" required>
+            <button type="submit">Entrar</button>
+        </form>
+        <p id="errorMessage" class="error">Usuário ou senha incorretos!</p>
+    </div>
+
+    <script>
+        let users = [];
+
+        // Função para carregar usuários do servidor
+        async function carregarUsuariosDoServidor() {
+            try {
+                const response = await fetch("/api/users");
+                if (!response.ok) {
+                    throw new Error("Erro ao carregar usuários do servidor");
+                }
+                users = await response.json();
+                console.log("Usuários carregados do servidor:", users);
+            } catch (err) {
+                console.error("Erro ao buscar usuários:", err);
+                alert("Erro ao carregar usuários. Usando usuários padrão.");
+                users = [
+                    {username: "admin", password: "102030", tipo: "admin"},
+                    {username: "tecnico1", password: "1234", tipo: "tecnico"},
+                    {username: "funcionario1", password: "5678", tipo: "funcionario"},
+                    {username: "Bruno", 102030: "[senha_do_bruno]", tipo: "tecnico"},
+                    {username: "Cleber", 102030: "[senha_do_cleber]", tipo: "tecnico"}
+                ];
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", async function() {
+            // Carrega os usuários do servidor
+            await carregarUsuariosDoServidor();
+
+            console.log("DOM carregado, procurando loginForm...");
+            const form = document.getElementById("loginForm");
+            if (!form) {
+                console.error("Elemento com ID 'loginForm' não encontrado!");
+                return;
+            }
+            console.log("loginForm encontrado, adicionando listener...");
+            form.addEventListener("submit", function(event) {
+                event.preventDefault();
+                console.log("Formulário enviado, verificando usuário...");
+                const username = document.getElementById("username").value;
+                const password = document.getElementById("password").value;
+                console.log("Tentativa de login - Usuário:", username, "Senha:", password);
+                console.log("Usuários disponíveis:", users);
+                const user = users.find(u => {
+                    const match = u.username === username && u.password === password;
+                    console.log("Comparando usuário:", u.username, "Senha:", u.password, "Match:", match);
+                    return match;
+                });
+
+                if (user) {
+                    console.log("Usuário encontrado:", user);
+                    sessionStorage.setItem("user", JSON.stringify(user));
+                    console.log("Usuário salvo no sessionStorage:", sessionStorage.getItem("user"));
+                    if (user.tipo === "admin") {
+                        console.log("Redirecionando para painel.html (admin)");
+                        window.location.href = "painel.html";
+                    } else if (user.tipo === "funcionario") {
+                        console.log("Redirecionando para painel_funcionario.html (funcionário)");
+                        window.location.href = "painel_funcionario.html";
+                    } else {
+                        console.log("Redirecionando para painel_tecnico.html (técnico)");
+                        window.location.href = "painel_tecnico.html";
+                    }
+                } else {
+                    console.log("Usuário ou senha incorretos!");
+                    alert("Usuário ou senha incorretos! Por favor, tente novamente.");
+                    document.getElementById("errorMessage").style.display = "block";
+                }
+            });
+        });
+    </script>
+</body>
+</html>
